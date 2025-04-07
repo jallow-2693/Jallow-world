@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, flash
+from flask import Flask, render_template, request, redirect, flash, session
 import sqlite3
 from models import create_db
 
@@ -13,6 +13,14 @@ def insert_user(nom, pseudo, email, password):
                 (nom, pseudo, email, password))
     conn.commit()
     conn.close()
+
+def get_user_by_email(email):
+    conn = sqlite3.connect("jallow_world.db")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE email = ?", (email,))
+    user = cur.fetchone()
+    conn.close()
+    return user
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -29,9 +37,31 @@ def register():
         
         insert_user(nom, pseudo, email, password)
         flash("Inscription réussie !")
-        return redirect("/")
+        return redirect("/login")
 
     return render_template("register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"]
+        password = request.form["password"]
+
+        user = get_user_by_email(email)
+        if user and user[4] == password:  # Vérifier que le mot de passe est correct (user[4] est le mot de passe)
+            session["user_id"] = user[0]  # Stocker l'ID de l'utilisateur dans la session
+            flash("Connexion réussie !")
+            return redirect("/")
+        else:
+            flash("Email ou mot de passe incorrect.")
+
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("user_id", None)  # Retirer l'utilisateur de la session
+    flash("Déconnexion réussie !")
+    return redirect("/login")
 
 @app.route("/")
 def home():
